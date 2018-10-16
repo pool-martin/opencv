@@ -605,6 +605,24 @@ void VideoCapture_create(CvCapture*& capture, Ptr<IVideoCapture>& icap, VideoCap
 }
 
 
+void VideoCapture_create(CvCapture*& capture, Ptr<IVideoCapture>& icap, VideoCaptureAPIs api, unsigned char* pBuffer, int bufLen)
+{
+    CV_UNUSED(capture);
+    switch (api)
+    {
+    default:
+        CV_LOG_WARNING(NULL, "VideoCapture for buffer was built without support of requested backendID=" << (int)api);
+        break;
+#ifdef HAVE_FFMPEG
+    case CAP_FFMPEG:
+        TRY_OPEN(cvCreateBufferCapture_FFMPEG_proxy(pBuffer, bufLen))
+        break;
+#endif
+    } // switch
+}
+
+
+
 void VideoWriter_create(CvVideoWriter*& writer, Ptr<IVideoWriter>& iwriter, VideoCaptureAPIs api,
         const String& filename, int fourcc, double fps, const Size& frameSize, bool isColor)
 {

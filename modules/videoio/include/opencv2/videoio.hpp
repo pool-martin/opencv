@@ -643,6 +643,16 @@ public:
     */
     CV_WRAP VideoCapture(int index, int apiPreference = CAP_ANY);
 
+    /** @overload
+    @brief  Opens a buffer for video capturing
+
+    @param pBuffer is the buffer containing the video to be opened
+    @param apiPreference preferred Capture API backends to use. Can be used to enforce a specific reader
+    implementation if multiple are available: e.g. cv::CAP_FFMPEG or cv::CAP_IMAGES or cv::CAP_DSHOW.
+    @sa The list of supported API backends cv::VideoCaptureAPIs
+    */
+    CV_WRAP VideoCapture(const char& pBuffer, int bufLen, int apiPreference = CAP_ANY);
+
     /** @brief Default destructor
 
     The method first calls VideoCapture::release to close the already opened file or camera.
@@ -659,6 +669,17 @@ public:
     The method first calls VideoCapture::release to close the already opened file or camera.
      */
     CV_WRAP virtual bool open(const String& filename, int apiPreference = CAP_ANY);
+
+    /** @brief  Opens a video buffer for video capturing.
+
+    @overload
+
+    Parameters are same as the constructor VideoCapture(unsigned char* pBuffer, int apiPreference = CAP_ANY)
+    @return `true` if the video buffer has been successfully opened
+
+    The method first calls VideoCapture::release to close the already opened buffer, file or camera.
+     */
+    CV_WRAP virtual bool open(const char& pBuffer, int bufLen, int apiPreference = CAP_ANY);
 
     /** @brief  Opens a camera for video capturing
 

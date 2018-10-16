@@ -59,6 +59,11 @@ VideoCapture::VideoCapture(const String& filename, int apiPreference)
     open(filename, apiPreference);
 }
 
+VideoCapture::VideoCapture(const char& pBuffer, int bufLen, int apiPreference)
+{
+    CV_TRACE_FUNCTION();
+    open(pBuffer, bufLen, apiPreference);
+}
 VideoCapture::VideoCapture(int index, int apiPreference)
 {
     CV_TRACE_FUNCTION();
@@ -87,6 +92,38 @@ bool VideoCapture::open(const String& filename, int apiPreference)
         {
             CvCapture* capture = NULL;
             VideoCapture_create(capture, icap, info.id, filename);
+            if (!icap.empty())
+            {
+                if (icap->isOpened())
+                    return true;
+                icap.release();
+            }
+            if (capture)
+            {
+                cap.reset(capture);
+                // assume it is opened
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool VideoCapture::open(const char& pBuffer, int bufLen, int apiPreference)
+{
+    CV_TRACE_FUNCTION();
+
+    if (isOpened()) release();
+
+    // TODO - getAvailableBackends_CaptureByBuffer
+    const std::vector<VideoBackendInfo> backends = cv::videoio_registry::getAvailableBackends_CaptureByFilename();
+    for (size_t i = 0; i < backends.size(); i++)
+    {
+        const VideoBackendInfo& info = backends[i];
+        if (apiPreference == CAP_ANY || apiPreference == info.id)
+        {
+            CvCapture* capture = NULL;
+            VideoCapture_create(capture, icap, info.id, (unsigned char*) pBuffer, bufLen);
             if (!icap.empty())
             {
                 if (icap->isOpened())

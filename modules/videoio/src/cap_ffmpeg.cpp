@@ -49,6 +49,7 @@
 #include "cap_ffmpeg_impl.hpp"
 
 #define icvCreateFileCapture_FFMPEG_p cvCreateFileCapture_FFMPEG
+#define icvCreateBufferCapture_FFMPEG_p cvCreateCaptureFromBuffer_FFMPEG
 #define icvReleaseCapture_FFMPEG_p cvReleaseCapture_FFMPEG
 #define icvGrabFrame_FFMPEG_p cvGrabFrame_FFMPEG
 #define icvRetrieveFrame_FFMPEG_p cvRetrieveFrame_FFMPEG
@@ -65,6 +66,7 @@
 namespace cv { namespace {
 
 static CvCreateFileCapture_Plugin icvCreateFileCapture_FFMPEG_p = 0;
+static CvCreateBufferCapture_Plugin icvCreateBufferCapture_FFMPEG_p = 0;
 static CvReleaseCapture_Plugin icvReleaseCapture_FFMPEG_p = 0;
 static CvGrabFrame_Plugin icvGrabFrame_FFMPEG_p = 0;
 static CvRetrieveFrame_Plugin icvRetrieveFrame_FFMPEG_p = 0;
@@ -160,6 +162,8 @@ private:
         {
             icvCreateFileCapture_FFMPEG_p =
                 (CvCreateFileCapture_Plugin)GetProcAddress(icvFFOpenCV, "cvCreateFileCapture_FFMPEG");
+            icvCreateBufferCapture_FFMPEG_p =
+                (CvCreateBufferCapture_Plugin)GetProcAddress(icvFFOpenCV, "cvCreateBufferCapture_FFMPEG");
             icvReleaseCapture_FFMPEG_p =
                 (CvReleaseCapture_Plugin)GetProcAddress(icvFFOpenCV, "cvReleaseCapture_FFMPEG");
             icvGrabFrame_FFMPEG_p =
@@ -179,6 +183,7 @@ private:
 # endif // _WIN32
 #if 0
             if( icvCreateFileCapture_FFMPEG_p != 0 &&
+                icvCreateBufferCapture_FFMPEG_p != 0 &&
                 icvReleaseCapture_FFMPEG_p != 0 &&
                 icvGrabFrame_FFMPEG_p != 0 &&
                 icvRetrieveFrame_FFMPEG_p != 0 &&
@@ -213,6 +218,7 @@ class CvCapture_FFMPEG_proxy CV_FINAL : public cv::IVideoCapture
 public:
     CvCapture_FFMPEG_proxy() { ffmpegCapture = 0; }
     CvCapture_FFMPEG_proxy(const cv::String& filename) { ffmpegCapture = 0; open(filename); }
+    CvCapture_FFMPEG_proxy(unsigned char* pBuffer, const unsigned int bufLen ) { ffmpegCapture = 0; open(pBuffer, bufLen); }
     virtual ~CvCapture_FFMPEG_proxy() { close(); }
 
     virtual double getProperty(int propId) const CV_OVERRIDE
@@ -245,6 +251,13 @@ public:
         ffmpegCapture = icvCreateFileCapture_FFMPEG_p( filename.c_str() );
         return ffmpegCapture != 0;
     }
+    virtual bool open( unsigned char* pBuffer, const unsigned int bufLen )
+    {
+        close();
+
+        ffmpegCapture = icvCreateBufferCapture_FFMPEG_p( pBuffer, bufLen );
+        return ffmpegCapture != 0;
+    }
     virtual void close()
     {
         if (ffmpegCapture
@@ -274,6 +287,19 @@ cv::Ptr<cv::IVideoCapture> cvCreateFileCapture_FFMPEG_proxy(const cv::String& fi
         return cv::Ptr<cv::IVideoCapture>();
 #endif
     cv::Ptr<CvCapture_FFMPEG_proxy> capture = cv::makePtr<CvCapture_FFMPEG_proxy>(filename);
+    if (capture && capture->isOpened())
+        return capture;
+    return cv::Ptr<cv::IVideoCapture>();
+}
+
+cv::Ptr<cv::IVideoCapture> cvCreateBufferCapture_FFMPEG_proxy(unsigned char* pBuffer, const unsigned int bufLen )
+{
+#if defined(HAVE_FFMPEG_WRAPPER)
+    icvInitFFMPEG::Init();
+    if (!icvCreateBufferCapture_FFMPEG_p)
+        return cv::Ptr<cv::IVideoCapture>();
+#endif
+    cv::Ptr<CvCapture_FFMPEG_proxy> capture = cv::makePtr<CvCapture_FFMPEG_proxy>(pBuffer, bufLen);
     if (capture && capture->isOpened())
         return capture;
     return cv::Ptr<cv::IVideoCapture>();
