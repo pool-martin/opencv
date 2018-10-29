@@ -218,7 +218,7 @@ class CvCapture_FFMPEG_proxy CV_FINAL : public cv::IVideoCapture
 public:
     CvCapture_FFMPEG_proxy() { ffmpegCapture = 0; }
     CvCapture_FFMPEG_proxy(const cv::String& filename) { ffmpegCapture = 0; open(filename); }
-    CvCapture_FFMPEG_proxy(unsigned char* pBuffer, const unsigned int bufLen ) { ffmpegCapture = 0; open(pBuffer, bufLen); }
+    CvCapture_FFMPEG_proxy(cv::InputArray pBuffer, const unsigned int bufLen ) { ffmpegCapture = 0; open(pBuffer, bufLen); }
     virtual ~CvCapture_FFMPEG_proxy() { close(); }
 
     virtual double getProperty(int propId) const CV_OVERRIDE
@@ -251,7 +251,7 @@ public:
         ffmpegCapture = icvCreateFileCapture_FFMPEG_p( filename.c_str() );
         return ffmpegCapture != 0;
     }
-    virtual bool open( unsigned char* pBuffer, const unsigned int bufLen )
+    virtual bool open( cv::InputArray pBuffer, const unsigned int bufLen )
     {
         close();
 
@@ -292,7 +292,7 @@ cv::Ptr<cv::IVideoCapture> cvCreateFileCapture_FFMPEG_proxy(const cv::String& fi
     return cv::Ptr<cv::IVideoCapture>();
 }
 
-cv::Ptr<cv::IVideoCapture> cvCreateBufferCapture_FFMPEG_proxy(unsigned char* pBuffer, const unsigned int bufLen )
+cv::Ptr<cv::IVideoCapture> cvCreateBufferCapture_FFMPEG_proxy(cv::InputArray pBuffer, const unsigned int bufLen )
 {
 #if defined(HAVE_FFMPEG_WRAPPER)
     icvInitFFMPEG::Init();

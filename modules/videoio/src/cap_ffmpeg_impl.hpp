@@ -473,7 +473,7 @@ static AVRational _opencv_ffmpeg_get_sample_aspect_ratio(AVStream *stream)
 struct CvCapture_FFMPEG
 {
     bool open( const char* filename );
-    bool openBuffer( unsigned char* pBuffer, unsigned int bufLen );
+    bool openBuffer( cv::InputArray pBuffer, unsigned int bufLen );
     void close();
 
     double getProperty(int) const;
@@ -996,7 +996,7 @@ static int read_buffer(void *opaque, uint8_t *buf, int buf_size)
     return buf_size;
 }
 
-bool CvCapture_FFMPEG::openBuffer( unsigned char* pBuffer, unsigned int bufLen )
+bool CvCapture_FFMPEG::openBuffer( cv::InputArray pBuffer, unsigned int bufLen )
 {
     AutoLock lock(_mutex);
     unsigned i;
@@ -1036,7 +1036,7 @@ bool CvCapture_FFMPEG::openBuffer( unsigned char* pBuffer, unsigned int bufLen )
     int err = 0;
     AVInputFormat *pAVInputFormat = NULL;
     ic = avformat_alloc_context();
-    ic->pb = avio_alloc_context(pBuffer, bufLen, 0, pBuffer, read_buffer, NULL, NULL);
+    ic->pb = avio_alloc_context((uchar*)pBuffer.getMat().ptr(), bufLen, 0, (uchar*)pBuffer.getMat().ptr(), read_buffer, NULL, NULL);
 
     if(!ic->pb) {
         CV_WARN("Error on avio_alloc_context for CvCapture_FFMPEG::openBuffer");
@@ -1049,7 +1049,7 @@ bool CvCapture_FFMPEG::openBuffer( unsigned char* pBuffer, unsigned int bufLen )
     probe_data.buf_size = (bufLen < 4096) ? bufLen : 4096;
     probe_data.filename = "stream";
     probe_data.buf = (unsigned char *) malloc(probe_data.buf_size);
-    memcpy(probe_data.buf, pBuffer, probe_data.buf_size);
+    memcpy(probe_data.buf, (uchar*)pBuffer.getMat().ptr(), probe_data.buf_size);
 
     pAVInputFormat = av_probe_input_format(&probe_data, 1);
 
@@ -2477,7 +2477,7 @@ CvCapture_FFMPEG* cvCreateFileCapture_FFMPEG( const char* filename )
     return 0;
 }
 
-CvCapture_FFMPEG* cvCreateCaptureFromBuffer_FFMPEG(  unsigned char* pBuffer, const unsigned int bufLen )
+CvCapture_FFMPEG* cvCreateCaptureFromBuffer_FFMPEG(  cv::InputArray pBuffer, const unsigned int bufLen )
 {
     CvCapture_FFMPEG* capture = (CvCapture_FFMPEG*)malloc(sizeof(*capture));
     if (!capture)

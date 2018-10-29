@@ -36,7 +36,7 @@ std::vector<VideoBackendInfo> getAvailableBackends_Writer();
 
 void VideoCapture_create(CvCapture*& capture, Ptr<IVideoCapture>& icap, VideoCaptureAPIs api, int index);
 void VideoCapture_create(CvCapture*& capture, Ptr<IVideoCapture>& icap, VideoCaptureAPIs api, const cv::String& filename);
-void VideoCapture_create(CvCapture*& capture, Ptr<IVideoCapture>& icap, VideoCaptureAPIs api, unsigned char* pBuffer, int bufLen);
+void VideoCapture_create(CvCapture*& capture, Ptr<IVideoCapture>& icap, VideoCaptureAPIs api, cv::InputArray pBuffer, int bufLen);
 void VideoWriter_create(CvVideoWriter*& writer, Ptr<IVideoWriter>& iwriter, VideoCaptureAPIs api,
         const String& filename, int fourcc, double fps, const Size& frameSize, bool isColor);
 

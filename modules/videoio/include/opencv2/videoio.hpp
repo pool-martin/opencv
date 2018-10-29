@@ -651,7 +651,7 @@ public:
     implementation if multiple are available: e.g. cv::CAP_FFMPEG or cv::CAP_IMAGES or cv::CAP_DSHOW.
     @sa The list of supported API backends cv::VideoCaptureAPIs
     */
-    CV_WRAP VideoCapture(const char& pBuffer, int bufLen, int apiPreference = CAP_ANY);
+    CV_WRAP VideoCapture(cv::InputArray pBuffer, int bufLen, int apiPreference = CAP_ANY);
 
     /** @brief Default destructor
 
@@ -679,7 +679,7 @@ public:
 
     The method first calls VideoCapture::release to close the already opened buffer, file or camera.
      */
-    CV_WRAP virtual bool open(const char& pBuffer, int bufLen, int apiPreference = CAP_ANY);
+    CV_WRAP virtual bool open(cv::InputArray pBuffer, int bufLen, int apiPreference = CAP_ANY);
 
     /** @brief  Opens a camera for video capturing
 

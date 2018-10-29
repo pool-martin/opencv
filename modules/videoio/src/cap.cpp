@@ -59,7 +59,7 @@ VideoCapture::VideoCapture(const String& filename, int apiPreference)
     open(filename, apiPreference);
 }
 
-VideoCapture::VideoCapture(const char& pBuffer, int bufLen, int apiPreference)
+VideoCapture::VideoCapture(cv::InputArray pBuffer, int bufLen, int apiPreference)
 {
     CV_TRACE_FUNCTION();
     open(pBuffer, bufLen, apiPreference);
@@ -109,7 +109,7 @@ bool VideoCapture::open(const String& filename, int apiPreference)
     return false;
 }
 
-bool VideoCapture::open(const char& pBuffer, int bufLen, int apiPreference)
+bool VideoCapture::open(cv::InputArray pBuffer, int bufLen, int apiPreference)
 {
     CV_TRACE_FUNCTION();
 
@@ -123,7 +123,7 @@ bool VideoCapture::open(const char& pBuffer, int bufLen, int apiPreference)
         if (apiPreference == CAP_ANY || apiPreference == info.id)
         {
             CvCapture* capture = NULL;
-            VideoCapture_create(capture, icap, info.id, (unsigned char*) pBuffer, bufLen);
+            VideoCapture_create(capture, icap, info.id, pBuffer, bufLen);
             if (!icap.empty())
             {
                 if (icap->isOpened())

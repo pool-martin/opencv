@@ -605,7 +605,7 @@ void VideoCapture_create(CvCapture*& capture, Ptr<IVideoCapture>& icap, VideoCap
 }
 
 
-void VideoCapture_create(CvCapture*& capture, Ptr<IVideoCapture>& icap, VideoCaptureAPIs api, unsigned char* pBuffer, int bufLen)
+void VideoCapture_create(CvCapture*& capture, Ptr<IVideoCapture>& icap, VideoCaptureAPIs api, cv::InputArray pBuffer, int bufLen)
 {
     CV_UNUSED(capture);
     switch (api)
