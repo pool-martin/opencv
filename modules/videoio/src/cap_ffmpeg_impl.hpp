@@ -1033,6 +1033,7 @@ bool CvCapture_FFMPEG::openBuffer( cv::InputArray pBuffer, unsigned int bufLen )
     av_dict_set(&dict, "rtsp_transport", "tcp", 0);
 #endif
     // int err = avformat_open_input(&ic, _filename, NULL, &dict);
+
     int err = 0;
     AVInputFormat *pAVInputFormat = NULL;
     ic = avformat_alloc_context();
@@ -1046,15 +1047,38 @@ bool CvCapture_FFMPEG::openBuffer( cv::InputArray pBuffer, unsigned int bufLen )
 
     // Need to probe buffer for input format unless you already know it
     AVProbeData probe_data;
-    probe_data.buf_size = (bufLen < 4096) ? bufLen : 4096;
-    probe_data.filename = "stream";
+    probe_data.buf = NULL;
+    probe_data.filename = "video.mp4";
+    probe_data.mime_type = "video/mp4";
+    probe_data.buf_size = AVPROBE_PADDING_SIZE + (bufLen < 4096) ? bufLen : 4096;
+    // probe_data.filename = "stream.mp4";
     probe_data.buf = (unsigned char *) malloc(probe_data.buf_size);
+    memset(probe_data.buf, 0, probe_data.buf_size);
     memcpy(probe_data.buf, (uchar*)pBuffer.getMat().ptr(), probe_data.buf_size);
 
+
+    CV_WARN("probe_data.buf_size");
+    char teste[100];
+    memset(teste, 0, 100);
+    printf(teste, "bufLen [%d]", probe_data.buf_size);
+    CV_LOG_INFO(NULL, "Teste bufLen: " << bufLen << " probe_data.buf_size: " << probe_data.buf_size );
+
+
+    CV_WARN("probe_data.buf");
+    memset(teste, 0, 100);
+    printf(teste, "probe_data.buf [%d]", probe_data.buf);
+    CV_LOG_INFO(NULL, "probe_data.buf: " << probe_data.buf << "\n");
+    // fwrite(probe_data.buf, 1, 100, stderr);
+
+
+    CV_WARN("444444444444444444444444444");
     pAVInputFormat = av_probe_input_format(&probe_data, 1);
+    CV_WARN("555555555555555555555555555");
 
     if(!pAVInputFormat)
         pAVInputFormat = av_probe_input_format(&probe_data, 0);
+
+    CV_WARN("66666666666666666666666666666");
 
     // cleanup
     free(probe_data.buf);
@@ -1065,11 +1089,13 @@ bool CvCapture_FFMPEG::openBuffer( cv::InputArray pBuffer, unsigned int bufLen )
         // CV_WARN(_filename);
         goto exit_func;
     }
+    CV_WARN("77777777777777777777777777777");
 
     pAVInputFormat->flags |= AVFMT_NOFILE;
 
     // err = av_open_input_stream(&ic , ic->pb, "stream", pAVInputFormat, NULL);
     err = avformat_open_input(&ic, "stream", pAVInputFormat, NULL);
+    CV_WARN("888888888888888888888888");
 
 #else
     // int err = av_open_input_file(&ic, _filename, NULL, 0, NULL);
