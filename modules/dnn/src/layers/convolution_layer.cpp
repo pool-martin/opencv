@@ -219,9 +219,14 @@ public:
 
     virtual bool supportBackend(int backendId) CV_OVERRIDE
     {
+#ifdef HAVE_INF_ENGINE
         if (backendId == DNN_BACKEND_INFERENCE_ENGINE)
-            return preferableTarget != DNN_TARGET_MYRIAD || dilation.width == dilation.height;
+        {
+            return INF_ENGINE_VER_MAJOR_GE(INF_ENGINE_RELEASE_2018R4) ||
+                   (preferableTarget != DNN_TARGET_MYRIAD || dilation.width == dilation.height);
+        }
         else
+#endif
             return backendId == DNN_BACKEND_OPENCV || backendId == DNN_BACKEND_HALIDE;
     }
 
@@ -254,6 +259,9 @@ public:
         }
 
         int ngroups = inpCn / blobs[0].size[1];
+        if (ngroups == 0 || ngroups * blobs[0].size[1] != inpCn)
+            CV_Error(Error::StsError, format("Number of input channels should "
+                     "be multiple of %d but got %d", blobs[0].size[1], inpCn));
         CV_Assert(ngroups > 0 && inpCn % ngroups == 0 && outCn % ngroups == 0);
 
         int dims[] = {inputs[0][0], outCn, out.height, out.width};
@@ -449,15 +457,34 @@ public:
         lp.precision = InferenceEngine::Precision::FP32;
         std::shared_ptr<InferenceEngine::ConvolutionLayer> ieLayer(new InferenceEngine::ConvolutionLayer(lp));
 
+#if INF_ENGINE_VER_MAJOR_GT(INF_ENGINE_RELEASE_2018R3)
+        ieLayer->_kernel.insert(InferenceEngine::X_AXIS, kernel.width);
+        ieLayer->_kernel.insert(InferenceEngine::Y_AXIS, kernel.height);
+        ieLayer->_stride.insert(InferenceEngine::X_AXIS, stride.width);
+        ieLayer->_stride.insert(InferenceEngine::Y_AXIS, stride.height);
+        ieLayer->_padding.insert(InferenceEngine::X_AXIS, pad.width);
+        ieLayer->_padding.insert(InferenceEngine::Y_AXIS, pad.height);
+        ieLayer->_pads_end.insert(InferenceEngine::X_AXIS, pad.width);
+        ieLayer->_pads_end.insert(InferenceEngine::Y_AXIS, pad.height);
+        ieLayer->_dilation.insert(InferenceEngine::X_AXIS, dilation.width);
+        ieLayer->_dilation.insert(InferenceEngine::Y_AXIS, dilation.height);
+        ieLayer->params["output"] = format("%d", outCn);
+        ieLayer->params["kernel"] = format("%d,%d,%d,%d", outCn, inpGroupCn, kernel.height, kernel.width);
+        ieLayer->params["pads_begin"] = format("%d,%d", pad.height, pad.width);
+        ieLayer->params["pads_end"] = format("%d,%d", pad.height, pad.width);
+        ieLayer->params["strides"] = format("%d,%d", stride.height, stride.width);
+        ieLayer->params["dilations"] = format("%d,%d", dilation.height, dilation.width);
+#else
         ieLayer->_kernel_x = kernel.width;
         ieLayer->_kernel_y = kernel.height;
         ieLayer->_stride_x = stride.width;
         ieLayer->_stride_y = stride.height;
-        ieLayer->_out_depth = outCn;
         ieLayer->_padding_x = pad.width;
         ieLayer->_padding_y = pad.height;
         ieLayer->_dilation_x = dilation.width;
         ieLayer->_dilation_y = dilation.height;
+#endif
+        ieLayer->_out_depth = outCn;
         ieLayer->_group = group;
 
         ieLayer->_weights = wrapToInfEngineBlob(blobs[0], InferenceEngine::Layout::OIHW);
@@ -1659,15 +1686,28 @@ public:
         lp.precision = InferenceEngine::Precision::FP32;
         std::shared_ptr<InferenceEngine::DeconvolutionLayer> ieLayer(new InferenceEngine::DeconvolutionLayer(lp));
 
+#if INF_ENGINE_VER_MAJOR_GT(INF_ENGINE_RELEASE_2018R3)
+        ieLayer->_kernel.insert(InferenceEngine::X_AXIS, kernel.width);
+        ieLayer->_kernel.insert(InferenceEngine::Y_AXIS, kernel.height);
+        ieLayer->_stride.insert(InferenceEngine::X_AXIS, stride.width);
+        ieLayer->_stride.insert(InferenceEngine::Y_AXIS, stride.height);
+        ieLayer->_padding.insert(InferenceEngine::X_AXIS, pad.width);
+        ieLayer->_padding.insert(InferenceEngine::Y_AXIS, pad.height);
+        ieLayer->_pads_end.insert(InferenceEngine::X_AXIS, pad.width);
+        ieLayer->_pads_end.insert(InferenceEngine::Y_AXIS, pad.height);
+        ieLayer->_dilation.insert(InferenceEngine::X_AXIS, dilation.width);
+        ieLayer->_dilation.insert(InferenceEngine::Y_AXIS, dilation.height);
+#else
         ieLayer->_kernel_x = kernel.width;
         ieLayer->_kernel_y = kernel.height;
         ieLayer->_stride_x = stride.width;
         ieLayer->_stride_y = stride.height;
-        ieLayer->_out_depth = numOutput;
         ieLayer->_padding_x = pad.width;
         ieLayer->_padding_y = pad.height;
         ieLayer->_dilation_x = dilation.width;
         ieLayer->_dilation_y = dilation.height;
+#endif
+        ieLayer->_out_depth = numOutput;
         ieLayer->_group = group;
 
         ieLayer->_weights = wrapToInfEngineBlob(blobs[0], InferenceEngine::Layout::OIHW);

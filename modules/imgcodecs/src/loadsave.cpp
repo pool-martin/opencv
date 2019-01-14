@@ -51,6 +51,8 @@
 #undef max
 #include <iostream>
 #include <fstream>
+#include <opencv2/core/utils/configuration.private.hpp>
+
 
 /****************************************************************************************\
 *                                      Image Codecs                                      *
@@ -58,18 +60,17 @@
 
 namespace cv {
 
-// TODO Add runtime configuration
-#define CV_IO_MAX_IMAGE_PARAMS (50)
-#define CV_IO_MAX_IMAGE_WIDTH (1<<20)
-#define CV_IO_MAX_IMAGE_HEIGHT (1<<20)
-#define CV_IO_MAX_IMAGE_PIXELS (1<<30) // 1 Gigapixel
+static const size_t CV_IO_MAX_IMAGE_PARAMS = cv::utils::getConfigurationParameterSizeT("OPENCV_IO_MAX_IMAGE_PARAMS", 50);
+static const size_t CV_IO_MAX_IMAGE_WIDTH = utils::getConfigurationParameterSizeT("OPENCV_IO_MAX_IMAGE_WIDTH", 1 << 20);
+static const size_t CV_IO_MAX_IMAGE_HEIGHT = utils::getConfigurationParameterSizeT("OPENCV_IO_MAX_IMAGE_HEIGHT", 1 << 20);
+static const size_t CV_IO_MAX_IMAGE_PIXELS = utils::getConfigurationParameterSizeT("OPENCV_IO_MAX_IMAGE_PIXELS", 1 << 30);
 
 static Size validateInputImageSize(const Size& size)
 {
     CV_Assert(size.width > 0);
-    CV_Assert(size.width <= CV_IO_MAX_IMAGE_WIDTH);
+    CV_Assert(static_cast<size_t>(size.width) <= CV_IO_MAX_IMAGE_WIDTH);
     CV_Assert(size.height > 0);
-    CV_Assert(size.height <= CV_IO_MAX_IMAGE_HEIGHT);
+    CV_Assert(static_cast<size_t>(size.height) <= CV_IO_MAX_IMAGE_HEIGHT);
     uint64 pixels = (uint64)size.width * (uint64)size.height;
     CV_Assert(pixels <= CV_IO_MAX_IMAGE_PIXELS);
     return size;
@@ -437,18 +438,18 @@ imread_( const String& filename, int flags, int hdrtype, Mat* mat=0 )
     /// set the filename in the driver
     decoder->setSource( filename );
 
-    CV_TRY
+    try
     {
         // read the header to make sure it succeeds
         if( !decoder->readHeader() )
             return 0;
     }
-    CV_CATCH (cv::Exception, e)
+    catch (const cv::Exception& e)
     {
         std::cerr << "imread_('" << filename << "'): can't read header: " << e.what() << std::endl << std::flush;
         return 0;
     }
-    CV_CATCH_ALL
+    catch (...)
     {
         std::cerr << "imread_('" << filename << "'): can't read header: unknown exception" << std::endl << std::flush;
         return 0;
@@ -493,16 +494,16 @@ imread_( const String& filename, int flags, int hdrtype, Mat* mat=0 )
 
     // read the image data
     bool success = false;
-    CV_TRY
+    try
     {
         if (decoder->readData(*data))
             success = true;
     }
-    CV_CATCH (cv::Exception, e)
+    catch (const cv::Exception& e)
     {
         std::cerr << "imread_('" << filename << "'): can't read data: " << e.what() << std::endl << std::flush;
     }
-    CV_CATCH_ALL
+    catch (...)
     {
         std::cerr << "imread_('" << filename << "'): can't read data: unknown exception" << std::endl << std::flush;
     }
@@ -559,18 +560,18 @@ imreadmulti_(const String& filename, int flags, std::vector<Mat>& mats)
     decoder->setSource(filename);
 
     // read the header to make sure it succeeds
-    CV_TRY
+    try
     {
         // read the header to make sure it succeeds
         if( !decoder->readHeader() )
             return 0;
     }
-    CV_CATCH (cv::Exception, e)
+    catch (const cv::Exception& e)
     {
         std::cerr << "imreadmulti_('" << filename << "'): can't read header: " << e.what() << std::endl << std::flush;
         return 0;
     }
-    CV_CATCH_ALL
+    catch (...)
     {
         std::cerr << "imreadmulti_('" << filename << "'): can't read header: unknown exception" << std::endl << std::flush;
         return 0;
@@ -598,16 +599,16 @@ imreadmulti_(const String& filename, int flags, std::vector<Mat>& mats)
         // read the image data
         Mat mat(size.height, size.width, type);
         bool success = false;
-        CV_TRY
+        try
         {
             if (decoder->readData(mat))
                 success = true;
         }
-        CV_CATCH (cv::Exception, e)
+        catch (const cv::Exception& e)
         {
             std::cerr << "imreadmulti_('" << filename << "'): can't read data: " << e.what() << std::endl << std::flush;
         }
-        CV_CATCH_ALL
+        catch (...)
         {
             std::cerr << "imreadmulti_('" << filename << "'): can't read data: unknown exception" << std::endl << std::flush;
         }
@@ -777,16 +778,16 @@ imdecode_( const Mat& buf, int flags, int hdrtype, Mat* mat=0 )
     }
 
     bool success = false;
-    CV_TRY
+    try
     {
         if (decoder->readHeader())
             success = true;
     }
-    CV_CATCH (cv::Exception, e)
+    catch (const cv::Exception& e)
     {
         std::cerr << "imdecode_('" << filename << "'): can't read header: " << e.what() << std::endl << std::flush;
     }
-    CV_CATCH_ALL
+    catch (...)
     {
         std::cerr << "imdecode_('" << filename << "'): can't read header: unknown exception" << std::endl << std::flush;
     }
@@ -839,16 +840,16 @@ imdecode_( const Mat& buf, int flags, int hdrtype, Mat* mat=0 )
     }
 
     success = false;
-    CV_TRY
+    try
     {
         if (decoder->readData(*data))
             success = true;
     }
-    CV_CATCH (cv::Exception, e)
+    catch (const cv::Exception& e)
     {
         std::cerr << "imdecode_('" << filename << "'): can't read data: " << e.what() << std::endl << std::flush;
     }
-    CV_CATCH_ALL
+    catch (...)
     {
         std::cerr << "imdecode_('" << filename << "'): can't read data: unknown exception" << std::endl << std::flush;
     }
@@ -998,7 +999,7 @@ cvSaveImage( const char* filename, const CvArr* arr, const int* _params )
     if( _params )
     {
         for( ; _params[i] > 0; i += 2 )
-            CV_Assert(i < CV_IO_MAX_IMAGE_PARAMS*2); // Limit number of params for security reasons
+            CV_Assert(static_cast<size_t>(i) < cv::CV_IO_MAX_IMAGE_PARAMS*2); // Limit number of params for security reasons
     }
     return cv::imwrite_(filename, cv::cvarrToMat(arr),
         i > 0 ? std::vector<int>(_params, _params+i) : std::vector<int>(),
@@ -1029,7 +1030,7 @@ cvEncodeImage( const char* ext, const CvArr* arr, const int* _params )
     if( _params )
     {
         for( ; _params[i] > 0; i += 2 )
-            CV_Assert(i < CV_IO_MAX_IMAGE_PARAMS*2); // Limit number of params for security reasons
+            CV_Assert(static_cast<size_t>(i) < cv::CV_IO_MAX_IMAGE_PARAMS*2); // Limit number of params for security reasons
     }
     cv::Mat img = cv::cvarrToMat(arr);
     if( CV_IS_IMAGE(arr) && ((const IplImage*)arr)->origin == IPL_ORIGIN_BL )

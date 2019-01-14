@@ -246,11 +246,11 @@ namespace cv
                 ivx::IVX_CHECK_STATUS(vxuSobel3x3(ctx, ia, NULL, ib));
             ctx.setImmediateBorder(prevBorder);
         }
-        catch (ivx::RuntimeError & e)
+        catch (const ivx::RuntimeError & e)
         {
             VX_DbgThrow(e.what());
         }
-        catch (ivx::WrapperError & e)
+        catch (const ivx::WrapperError & e)
         {
             VX_DbgThrow(e.what());
         }
@@ -337,7 +337,7 @@ static bool ipp_Deriv(InputArray _src, OutputArray _dst, int dx, int dy, int ksi
         if(useScale)
             CV_INSTRUMENT_FUN_IPP(::ipp::iwiScale, iwDstProc, iwDst, scale, delta, ::ipp::IwiScaleParams(ippAlgHintFast));
     }
-    catch (::ipp::IwException)
+    catch (const ::ipp::IwException &)
     {
         return false;
     }
@@ -441,7 +441,7 @@ void cv::Sobel( InputArray _src, OutputArray _dst, int ddepth, int dx, int dy,
                ocl_sepFilter3x3_8UC1(_src, _dst, ddepth, kx, ky, delta, borderType));
 
     CV_OCL_RUN(ocl::isOpenCLActivated() && _dst.isUMat() && _src.dims() <= 2 && (size_t)_src.rows() > kx.total() && (size_t)_src.cols() > kx.total(),
-               ocl_sepFilter2D(_src, _dst, ddepth, kx, ky, Point(-1, -1), 0, borderType))
+               ocl_sepFilter2D(_src, _dst, ddepth, kx, ky, Point(-1, -1), delta, borderType))
 
     Mat src = _src.getMat();
     Mat dst = _dst.getMat();
@@ -494,7 +494,7 @@ void cv::Scharr( InputArray _src, OutputArray _dst, int ddepth, int dx, int dy,
 
     CV_OCL_RUN(ocl::isOpenCLActivated() && _dst.isUMat() && _src.dims() <= 2 &&
                (size_t)_src.rows() > kx.total() && (size_t)_src.cols() > kx.total(),
-               ocl_sepFilter2D(_src, _dst, ddepth, kx, ky, Point(-1, -1), 0, borderType))
+               ocl_sepFilter2D(_src, _dst, ddepth, kx, ky, Point(-1, -1), delta, borderType))
 
     Mat src = _src.getMat();
     Mat dst = _dst.getMat();
@@ -765,7 +765,7 @@ static bool ipp_Laplacian(InputArray _src, OutputArray _dst, int ksize, double s
             CV_INSTRUMENT_FUN_IPP(::ipp::iwiScale, iwDstProc, iwDst, scale, delta);
 
     }
-    catch (::ipp::IwException ex)
+    catch (const ::ipp::IwException &)
     {
         return false;
     }

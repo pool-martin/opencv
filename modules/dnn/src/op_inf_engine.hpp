@@ -25,10 +25,12 @@
 #define INF_ENGINE_RELEASE_2018R1 2018010000
 #define INF_ENGINE_RELEASE_2018R2 2018020000
 #define INF_ENGINE_RELEASE_2018R3 2018030000
+#define INF_ENGINE_RELEASE_2018R4 2018040000
+#define INF_ENGINE_RELEASE_2018R5 2018050000
 
 #ifndef INF_ENGINE_RELEASE
-#warning("IE version have not been provided via command-line. Using 2018R2 by default")
-#define INF_ENGINE_RELEASE INF_ENGINE_RELEASE_2018R2
+#warning("IE version have not been provided via command-line. Using 2018R5 by default")
+#define INF_ENGINE_RELEASE INF_ENGINE_RELEASE_2018R5
 #endif
 
 #define INF_ENGINE_VER_MAJOR_GT(ver) (((INF_ENGINE_RELEASE) / 10000) > ((ver) / 10000))
@@ -66,6 +68,8 @@ public:
     virtual InferenceEngine::InputInfo::Ptr getInput(const std::string &inputName) noexcept;
 
     virtual InferenceEngine::InputInfo::Ptr getInput(const std::string &inputName) const noexcept;
+
+    virtual InferenceEngine::StatusCode serialize(const std::string &xmlPath, const std::string &binPath, InferenceEngine::ResponseDesc* resp) const noexcept;
 
     virtual void getName(char *pName, size_t len) noexcept;
 
@@ -133,6 +137,9 @@ private:
     InferenceEngine::InferRequest infRequest;
     // In case of models from Model Optimizer we need to manage their lifetime.
     InferenceEngine::CNNNetwork netOwner;
+    // There is no way to check if netOwner is initialized or not so we use
+    // a separate flag to determine if the model has been loaded from IR.
+    bool hasNetOwner;
 
     std::string name;
 

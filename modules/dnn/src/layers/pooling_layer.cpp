@@ -95,7 +95,6 @@ public:
         else if (params.has("pooled_w") || params.has("pooled_h"))
         {
             type = ROI;
-            computeMaxIdx = false;
             pooledSize.width = params.get<uint32_t>("pooled_w", 1);
             pooledSize.height = params.get<uint32_t>("pooled_h", 1);
         }
@@ -141,6 +140,7 @@ public:
 #ifdef HAVE_OPENCL
         poolOp.release();
 #endif
+        computeMaxIdx = type == MAX;
     }
 
     virtual bool supportBackend(int backendId) CV_OVERRIDE
@@ -154,8 +154,8 @@ public:
         }
         else
             return backendId == DNN_BACKEND_OPENCV ||
-                   backendId == DNN_BACKEND_HALIDE && haveHalide() &&
-                   (type == MAX || type == AVE && !pad_t && !pad_l && !pad_b && !pad_r);
+                   (backendId == DNN_BACKEND_HALIDE && haveHalide() &&
+                   (type == MAX || (type == AVE && !pad_t && !pad_l && !pad_b && !pad_r)));
     }
 
 #ifdef HAVE_OPENCL
@@ -190,19 +190,14 @@ public:
             poolOp = Ptr<OCL4DNNPool<float> >(new OCL4DNNPool<float>(config));
         }
 
-        for (size_t ii = 0; ii < inputs.size(); ii++)
-        {
-            UMat& inpMat = inputs[ii];
-            int out_index = (type == MAX) ? 2 : 1;
-            UMat& outMat = outputs[out_index * ii];
-            UMat maskMat = (type == MAX) ? outputs[2 * ii + 1] : UMat();
+        CV_Assert_N(inputs.size() == 1, !outputs.empty(), !computeMaxIdx || outputs.size() == 2);
+        UMat& inpMat = inputs[0];
+        UMat& outMat = outputs[0];
+        UMat maskMat = computeMaxIdx ? outputs[1] : UMat();
 
-            CV_Assert(inpMat.offset == 0 && outMat.offset == 0);
+        CV_Assert(inpMat.offset == 0 && outMat.offset == 0);
 
-            if (!poolOp->Forward(inpMat, outMat, maskMat))
-                return false;
-        }
-        return true;
+        return poolOp->Forward(inpMat, outMat, maskMat);
     }
 #endif
 
@@ -229,9 +224,12 @@ public:
         switch (type)
         {
             case MAX:
-                CV_Assert_N(inputs.size() == 1, outputs.size() == 2);
-                maxPooling(inputs[0], outputs[0], outputs[1]);
+            {
+                CV_Assert_N(inputs.size() == 1, !computeMaxIdx || outputs.size() == 2);
+                Mat mask = computeMaxIdx ? outputs[1] : Mat();
+                maxPooling(inputs[0], outputs[0], mask);
                 break;
+            }
             case AVE:
                 CV_Assert_N(inputs.size() == 1, outputs.size() == 1);
                 avePooling(inputs[0], outputs[0]);
@@ -268,6 +266,20 @@ public:
         {
             lp.type = "Pooling";
             InferenceEngine::PoolingLayer* poolLayer = new InferenceEngine::PoolingLayer(lp);
+#if INF_ENGINE_VER_MAJOR_GT(INF_ENGINE_RELEASE_2018R3)
+            poolLayer->_kernel.insert(InferenceEngine::X_AXIS, kernel.width);
+            poolLayer->_kernel.insert(InferenceEngine::Y_AXIS, kernel.height);
+            poolLayer->_stride.insert(InferenceEngine::X_AXIS, stride.width);
+            poolLayer->_stride.insert(InferenceEngine::Y_AXIS, stride.height);
+            poolLayer->_padding.insert(InferenceEngine::X_AXIS, pad_l);
+            poolLayer->_padding.insert(InferenceEngine::Y_AXIS, pad_t);
+            poolLayer->_pads_end.insert(InferenceEngine::X_AXIS, pad_r);
+            poolLayer->_pads_end.insert(InferenceEngine::Y_AXIS, pad_b);
+            poolLayer->params["kernel"] = format("%d,%d", kernel.height, kernel.width);
+            poolLayer->params["pads_begin"] = format("%d,%d", pad_t, pad_l);
+            poolLayer->params["pads_end"] = format("%d,%d", pad_b, pad_r);
+            poolLayer->params["strides"] = format("%d,%d", stride.height, stride.width);
+#else
             poolLayer->_kernel_x = kernel.width;
             poolLayer->_kernel_y = kernel.height;
             poolLayer->_stride_x = stride.width;
@@ -276,6 +288,7 @@ public:
             poolLayer->_padding_y = pad_t;
             poolLayer->params["pad-r"] = format("%d", pad_r);
             poolLayer->params["pad-b"] = format("%d", pad_b);
+#endif
             poolLayer->_exclude_pad = type == AVE && padMode == "SAME";
             poolLayer->params["rounding-type"] = ceilMode ? "ceil" : "floor";
             poolLayer->_type = type == MAX ? InferenceEngine::PoolingLayer::PoolType::MAX :
@@ -332,8 +345,8 @@ public:
                       src.isContinuous(), dst.isContinuous(),
                       src.type() == CV_32F, src.type() == dst.type(),
                       src.dims == 4, dst.dims == 4,
-                      ((poolingType == ROI || poolingType == PSROI) && dst.size[0] ==rois.size[0] || src.size[0] == dst.size[0]),
-                       poolingType == PSROI || src.size[1] == dst.size[1],
+                      (((poolingType == ROI || poolingType == PSROI) && dst.size[0] == rois.size[0]) || src.size[0] == dst.size[0]),
+                      poolingType == PSROI || src.size[1] == dst.size[1],
                       (mask.empty() || (mask.type() == src.type() && mask.size == dst.size)));
 
             PoolingInvoker p;
@@ -901,7 +914,10 @@ public:
             dims[0] = inputs[1][0];  // Number of proposals;
             dims[1] = psRoiOutChannels;
         }
-        outputs.assign(type == MAX ? 2 : 1, shape(dims, 4));
+
+        int numOutputs = requiredOutputs ? requiredOutputs : (type == MAX ? 2 : 1);
+        CV_Assert(numOutputs == 1 || (numOutputs == 2 && type == MAX));
+        outputs.assign(numOutputs, shape(dims, 4));
 
         return false;
     }
