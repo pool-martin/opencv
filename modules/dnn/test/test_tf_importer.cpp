@@ -101,7 +101,9 @@ public:
 
             string dataConfig;
             if (hasText)
+            {
                 ASSERT_TRUE(readFileInMemory(netConfig, dataConfig));
+            }
 
             net = readNetFromTensorflow(dataModel.c_str(), dataModel.size(),
                                         dataConfig.c_str(), dataConfig.size());
@@ -134,11 +136,13 @@ TEST_P(Test_TensorFlow_layers, padding)
     runTensorFlowNet("padding_same");
     runTensorFlowNet("padding_valid");
     runTensorFlowNet("spatial_padding");
+    runTensorFlowNet("keras_pad_concat");
 }
 
-TEST_P(Test_TensorFlow_layers, eltwise_add_mul)
+TEST_P(Test_TensorFlow_layers, eltwise)
 {
     runTensorFlowNet("eltwise_add_mul");
+    runTensorFlowNet("eltwise_sub");
 }
 
 TEST_P(Test_TensorFlow_layers, pad_and_concat)
@@ -237,6 +241,10 @@ TEST_P(Test_TensorFlow_layers, unfused_flatten)
 
 TEST_P(Test_TensorFlow_layers, leaky_relu)
 {
+#if defined(INF_ENGINE_RELEASE) && INF_ENGINE_RELEASE == 2018050000
+    if (backend == DNN_BACKEND_INFERENCE_ENGINE && target == DNN_TARGET_OPENCL)
+        throw SkipTestException("");
+#endif
     runTensorFlowNet("leaky_relu_order1");
     runTensorFlowNet("leaky_relu_order2");
     runTensorFlowNet("leaky_relu_order3");
@@ -358,7 +366,7 @@ TEST_P(Test_TensorFlow_nets, Faster_RCNN)
         (backend == DNN_BACKEND_OPENCV && target == DNN_TARGET_OPENCL_FP16))
         throw SkipTestException("");
 
-    for (int i = 1; i < 2; ++i)
+    for (int i = 0; i < 2; ++i)
     {
         std::string proto = findDataFile("dnn/" + names[i] + ".pbtxt", false);
         std::string model = findDataFile("dnn/" + names[i] + ".pb", false);
@@ -379,6 +387,10 @@ TEST_P(Test_TensorFlow_nets, Faster_RCNN)
 
 TEST_P(Test_TensorFlow_nets, MobileNet_v1_SSD_PPN)
 {
+#if defined(INF_ENGINE_RELEASE) && INF_ENGINE_RELEASE == 2018050000
+    if (backend == DNN_BACKEND_INFERENCE_ENGINE && (target == DNN_TARGET_OPENCL || target == DNN_TARGET_OPENCL_FP16))
+        throw SkipTestException("Unstable test case");
+#endif
     checkBackend();
     std::string proto = findDataFile("dnn/ssd_mobilenet_v1_ppn_coco.pbtxt", false);
     std::string model = findDataFile("dnn/ssd_mobilenet_v1_ppn_coco.pb", false);
@@ -473,7 +485,7 @@ TEST_P(Test_TensorFlow_nets, EAST_text_detection)
     double l1_geometry = default_l1, lInf_geometry = default_lInf;
     if (target == DNN_TARGET_OPENCL_FP16)
     {
-        lInf_scores = 0.11;
+        lInf_scores = backend == DNN_BACKEND_INFERENCE_ENGINE ? 0.16 : 0.11;
         l1_geometry = 0.28; lInf_geometry = 5.94;
     }
     else if (target == DNN_TARGET_MYRIAD)
@@ -556,6 +568,10 @@ TEST_P(Test_TensorFlow_layers, slice)
     if (backend == DNN_BACKEND_INFERENCE_ENGINE &&
         (target == DNN_TARGET_OPENCL || target == DNN_TARGET_OPENCL_FP16))
         throw SkipTestException("");
+#if defined(INF_ENGINE_RELEASE) && INF_ENGINE_RELEASE == 2018050000
+    if (backend == DNN_BACKEND_INFERENCE_ENGINE && target == DNN_TARGET_MYRIAD)
+        throw SkipTestException("");
+#endif
     runTensorFlowNet("slice_4d");
 }
 

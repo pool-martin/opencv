@@ -107,15 +107,14 @@ void* allocSingletonBuffer(size_t size) { return fastMalloc(size); }
 #  include <cpu-features.h>
 #endif
 
-#ifndef __VSX__
-# if defined __PPC64__ && defined __linux__
-#   include "sys/auxv.h"
-#   ifndef AT_HWCAP2
-#     define AT_HWCAP2 26
-#   endif
-#   ifndef PPC_FEATURE2_ARCH_2_07
-#     define PPC_FEATURE2_ARCH_2_07 0x80000000
-#   endif
+
+#if CV_VSX && defined __linux__
+# include "sys/auxv.h"
+# ifndef AT_HWCAP2
+#   define AT_HWCAP2 26
+# endif
+# ifndef PPC_FEATURE2_ARCH_3_00
+#   define PPC_FEATURE2_ARCH_3_00 0x00800000
 # endif
 #endif
 
@@ -359,6 +358,7 @@ struct HWFeatures
         g_hwFeatureNames[CPU_NEON] = "NEON";
 
         g_hwFeatureNames[CPU_VSX] = "VSX";
+        g_hwFeatureNames[CPU_VSX3] = "VSX3";
 
         g_hwFeatureNames[CPU_AVX512_SKX] = "AVX512-SKX";
     }
@@ -513,14 +513,14 @@ struct HWFeatures
     #endif
     #endif
 
-    #ifdef __VSX__
-        have[CV_CPU_VSX] = true;
-    #elif (defined __PPC64__ && defined __linux__)
-        uint64 hwcaps = getauxval(AT_HWCAP);
+    // there's no need to check VSX availability in runtime since it's always available on ppc64le CPUs
+    have[CV_CPU_VSX] = (CV_VSX);
+    // TODO: Check VSX3 availability in runtime for other platforms
+    #if CV_VSX && defined __linux__
         uint64 hwcap2 = getauxval(AT_HWCAP2);
-        have[CV_CPU_VSX] = (hwcaps & PPC_FEATURE_PPC_LE && hwcaps & PPC_FEATURE_HAS_VSX && hwcap2 & PPC_FEATURE2_ARCH_2_07);
+        have[CV_CPU_VSX3] = (hwcap2 & PPC_FEATURE2_ARCH_3_00);
     #else
-        have[CV_CPU_VSX] = false;
+        have[CV_CPU_VSX3] = (CV_VSX3);
     #endif
 
         int baseline_features[] = { CV_CPU_BASELINE_FEATURES };
@@ -1029,7 +1029,7 @@ void error( const Exception& exc )
         *p = 0;
     }
 
-    CV_THROW(exc);
+    throw exc;
 #ifdef __GNUC__
 # if !defined __clang__ && !defined __APPLE__
     // this suppresses this warning: "noreturn" function does return [enabled by default]
@@ -2017,7 +2017,12 @@ public:
             env = pIppEnv;
         if(env.size())
         {
-#if IPP_VERSION_X100 >= 201703
+#if IPP_VERSION_X100 >= 201900
+            const Ipp64u minorFeatures = ippCPUID_MOVBE|ippCPUID_AES|ippCPUID_CLMUL|ippCPUID_ABR|ippCPUID_RDRAND|ippCPUID_F16C|
+                ippCPUID_ADCOX|ippCPUID_RDSEED|ippCPUID_PREFETCHW|ippCPUID_SHA|ippCPUID_MPX|ippCPUID_AVX512CD|ippCPUID_AVX512ER|
+                ippCPUID_AVX512PF|ippCPUID_AVX512BW|ippCPUID_AVX512DQ|ippCPUID_AVX512VL|ippCPUID_AVX512VBMI|ippCPUID_AVX512_4FMADDPS|
+                ippCPUID_AVX512_4VNNIW|ippCPUID_AVX512IFMA;
+#elif IPP_VERSION_X100 >= 201703
             const Ipp64u minorFeatures = ippCPUID_MOVBE|ippCPUID_AES|ippCPUID_CLMUL|ippCPUID_ABR|ippCPUID_RDRAND|ippCPUID_F16C|
                 ippCPUID_ADCOX|ippCPUID_RDSEED|ippCPUID_PREFETCHW|ippCPUID_SHA|ippCPUID_MPX|ippCPUID_AVX512CD|ippCPUID_AVX512ER|
                 ippCPUID_AVX512PF|ippCPUID_AVX512BW|ippCPUID_AVX512DQ|ippCPUID_AVX512VL|ippCPUID_AVX512VBMI;
@@ -2210,7 +2215,7 @@ void setUseIPP(bool flag)
 #endif
 }
 
-bool useIPP_NE()
+bool useIPP_NotExact()
 {
 #ifdef HAVE_IPP
     CoreTLSData* data = getCoreTlsData().get();
@@ -2224,11 +2229,11 @@ bool useIPP_NE()
 #endif
 }
 
-void setUseIPP_NE(bool flag)
+void setUseIPP_NotExact(bool flag)
 {
     CoreTLSData* data = getCoreTlsData().get();
 #ifdef HAVE_IPP
-    data->useIPP_NE = (getIPPSingleton().useIPP_NE)?flag:false;
+    data->useIPP_NE = flag;
 #else
     CV_UNUSED(flag);
     data->useIPP_NE = false;

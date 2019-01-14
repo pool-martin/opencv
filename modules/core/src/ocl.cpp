@@ -894,11 +894,11 @@ bool useOpenCL()
     CoreTLSData* data = getCoreTlsData().get();
     if( data->useOpenCL < 0 )
     {
-        CV_TRY
+        try
         {
             data->useOpenCL = (int)(haveOpenCL() && Device::getDefault().ptr() && Device::getDefault().available()) ? 1 : 0;
         }
-        CV_CATCH_ALL
+        catch (...)
         {
             data->useOpenCL = 0;
         }
@@ -1257,6 +1257,14 @@ struct Device::Impl
         else
             vendorID_ = UNKNOWN_VENDOR;
 
+        const size_t CV_OPENCL_DEVICE_MAX_WORK_GROUP_SIZE = utils::getConfigurationParameterSizeT("OPENCV_OPENCL_DEVICE_MAX_WORK_GROUP_SIZE", 0);
+        if (CV_OPENCL_DEVICE_MAX_WORK_GROUP_SIZE > 0)
+        {
+            const size_t new_maxWorkGroupSize = std::min(maxWorkGroupSize_, CV_OPENCL_DEVICE_MAX_WORK_GROUP_SIZE);
+            if (new_maxWorkGroupSize != maxWorkGroupSize_)
+                CV_LOG_WARNING(NULL, "OpenCL: using workgroup size: " << new_maxWorkGroupSize << " (was " << maxWorkGroupSize_ << ")");
+            maxWorkGroupSize_ = new_maxWorkGroupSize;
+        }
 #if 0
         if (isExtensionSupported("cl_khr_spir"))
         {
@@ -2772,6 +2780,7 @@ struct Kernel::Impl
         for( int i = 0; i < MAX_ARRS; i++ )
             u[i] = 0;
         haveTempDstUMats = false;
+        haveTempSrcUMats = false;
     }
 
     void cleanupUMats()
@@ -2788,6 +2797,7 @@ struct Kernel::Impl
             }
         nu = 0;
         haveTempDstUMats = false;
+        haveTempSrcUMats = false;
     }
 
     void addUMat(const UMat& m, bool dst)
@@ -2798,6 +2808,8 @@ struct Kernel::Impl
         nu++;
         if(dst && m.u->tempUMat())
             haveTempDstUMats = true;
+        if(m.u->originalUMatData == NULL && m.u->tempUMat())
+            haveTempSrcUMats = true;  // UMat is created on RAW memory (without proper lifetime management, even from Mat)
     }
 
     void addImage(const Image2D& image)
@@ -2835,6 +2847,7 @@ struct Kernel::Impl
     int nu;
     std::list<Image2D> images;
     bool haveTempDstUMats;
+    bool haveTempSrcUMats;
 };
 
 }} // namespace cv::ocl
@@ -3107,6 +3120,8 @@ bool Kernel::Impl::run(int dims, size_t globalsize[], size_t localsize[],
 
     cl_command_queue qq = getQueue(q);
     if (haveTempDstUMats)
+        sync = true;
+    if (haveTempSrcUMats)
         sync = true;
     if (timeNS)
         sync = true;
@@ -6002,10 +6017,13 @@ const char* typeToStr(int type)
         "int", "int2", "int3", "int4", 0, 0, 0, "int8", 0, 0, 0, 0, 0, 0, 0, "int16",
         "float", "float2", "float3", "float4", 0, 0, 0, "float8", 0, 0, 0, 0, 0, 0, 0, "float16",
         "double", "double2", "double3", "double4", 0, 0, 0, "double8", 0, 0, 0, 0, 0, 0, 0, "double16",
-        "?", "?", "?", "?", "?", "?", "?", "?", "?", "?", "?", "?", "?", "?", "?", "?"
+        "half", "half2", "half3", "half4", 0, 0, 0, "half8", 0, 0, 0, 0, 0, 0, 0, "half16",
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
     };
     int cn = CV_MAT_CN(type), depth = CV_MAT_DEPTH(type);
-    return cn > 16 ? "?" : tab[depth*16 + cn-1];
+    const char* result = cn > 16 ? 0 : tab[depth*16 + cn-1];
+    CV_Assert(result);
+    return result;
 }
 
 const char* memopTypeToStr(int type)
@@ -6019,10 +6037,13 @@ const char* memopTypeToStr(int type)
         "int", "int2", "int3", "int4", 0, 0, 0, "int8", 0, 0, 0, 0, 0, 0, 0, "int16",
         "int", "int2", "int3", "int4", 0, 0, 0, "int8", 0, 0, 0, 0, 0, 0, 0, "int16",
         "ulong", "ulong2", "ulong3", "ulong4", 0, 0, 0, "ulong8", 0, 0, 0, 0, 0, 0, 0, "ulong16",
-        "?", "?", "?", "?", "?", "?", "?", "?", "?", "?", "?", "?", "?", "?", "?", "?"
+        "short", "short2", "short3", "short4", 0, 0, 0, "short8", 0, 0, 0, 0, 0, 0, 0, "short16",
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
     };
     int cn = CV_MAT_CN(type), depth = CV_MAT_DEPTH(type);
-    return cn > 16 ? "?" : tab[depth*16 + cn-1];
+    const char* result = cn > 16 ? 0 : tab[depth*16 + cn-1];
+    CV_Assert(result);
+    return result;
 }
 
 const char* vecopTypeToStr(int type)
@@ -6036,10 +6057,13 @@ const char* vecopTypeToStr(int type)
         "int", "int2", "int3", "int4", 0, 0, 0, "int8", 0, 0, 0, 0, 0, 0, 0, "int16",
         "int", "int2", "int3", "int4", 0, 0, 0, "int8", 0, 0, 0, 0, 0, 0, 0, "int16",
         "ulong", "ulong2", "ulong3", "ulong4", 0, 0, 0, "ulong8", 0, 0, 0, 0, 0, 0, 0, "ulong16",
-        "?", "?", "?", "?", "?", "?", "?", "?", "?", "?", "?", "?", "?", "?", "?", "?"
+        "short", "short2", "short3", "short4", 0, 0, 0, "short8", 0, 0, 0, 0, 0, 0, 0, "short16",
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
     };
     int cn = CV_MAT_CN(type), depth = CV_MAT_DEPTH(type);
-    return cn > 16 ? "?" : tab[depth*16 + cn-1];
+    const char* result = cn > 16 ? 0 : tab[depth*16 + cn-1];
+    CV_Assert(result);
+    return result;
 }
 
 const char* convertTypeStr(int sdepth, int ddepth, int cn, char* buf)

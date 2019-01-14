@@ -68,6 +68,12 @@ TEST_P(Test_ONNX_layers, Convolution)
     testONNXModels("two_convolution");
 }
 
+TEST_P(Test_ONNX_layers, Deconvolution)
+{
+    testONNXModels("deconvolution");
+    testONNXModels("two_deconvolution");
+}
+
 TEST_P(Test_ONNX_layers, Dropout)
 {
     testONNXModels("dropout");
@@ -118,8 +124,8 @@ TEST_P(Test_ONNX_layers, Transpose)
 
 TEST_P(Test_ONNX_layers, Multiplication)
 {
-    if (backend == DNN_BACKEND_OPENCV && target == DNN_TARGET_OPENCL_FP16 ||
-        backend == DNN_BACKEND_INFERENCE_ENGINE && target == DNN_TARGET_MYRIAD)
+    if ((backend == DNN_BACKEND_OPENCV && target == DNN_TARGET_OPENCL_FP16) ||
+        (backend == DNN_BACKEND_INFERENCE_ENGINE && target == DNN_TARGET_MYRIAD))
         throw SkipTestException("");
     testONNXModels("mul");
 }
@@ -127,6 +133,11 @@ TEST_P(Test_ONNX_layers, Multiplication)
 TEST_P(Test_ONNX_layers, Constant)
 {
     testONNXModels("constant");
+}
+
+TEST_P(Test_ONNX_layers, Padding)
+{
+    testONNXModels("padding");
 }
 
 TEST_P(Test_ONNX_layers, MultyInputs)
@@ -151,6 +162,12 @@ TEST_P(Test_ONNX_layers, MultyInputs)
     normAssert(ref, out, "", default_l1,  default_lInf);
 }
 
+TEST_P(Test_ONNX_layers, DynamicReshape)
+{
+    if (backend == DNN_BACKEND_INFERENCE_ENGINE && (target == DNN_TARGET_OPENCL || target == DNN_TARGET_OPENCL_FP16))
+        throw SkipTestException("");
+    testONNXModels("dynamic_reshape");
+}
 
 INSTANTIATE_TEST_CASE_P(/*nothing*/, Test_ONNX_layers, dnnBackendsAndTargets());
 
@@ -234,6 +251,10 @@ TEST_P(Test_ONNX_nets, VGG16)
     else if (backend == DNN_BACKEND_INFERENCE_ENGINE && target == DNN_TARGET_OPENCL) {
         lInf = 1.2e-4;
     }
+#if defined(INF_ENGINE_RELEASE) && INF_ENGINE_RELEASE >= 2018050000
+    if (backend == DNN_BACKEND_INFERENCE_ENGINE && target == DNN_TARGET_OPENCL_FP16)
+        l1 = 0.131;
+#endif
     testONNXModels("vgg16", pb, l1, lInf);
 }
 
@@ -291,7 +312,7 @@ TEST_P(Test_ONNX_nets, ResNet101_DUC_HDC)
 TEST_P(Test_ONNX_nets, TinyYolov2)
 {
     if (cvtest::skipUnstableTests ||
-        backend == DNN_BACKEND_INFERENCE_ENGINE && (target == DNN_TARGET_OPENCL || target == DNN_TARGET_OPENCL_FP16)) {
+        (backend == DNN_BACKEND_INFERENCE_ENGINE && (target == DNN_TARGET_OPENCL || target == DNN_TARGET_OPENCL_FP16))) {
         throw SkipTestException("");
     }
     // output range: [-11; 8]
@@ -312,7 +333,7 @@ TEST_P(Test_ONNX_nets, CNN_MNIST)
 TEST_P(Test_ONNX_nets, MobileNet_v2)
 {
     // output range: [-166; 317]
-    const double l1 = (target == DNN_TARGET_OPENCL_FP16 || target == DNN_TARGET_MYRIAD) ? 0.38 : 7e-5;
+    const double l1 = (target == DNN_TARGET_OPENCL_FP16 || target == DNN_TARGET_MYRIAD) ? 0.4 : 7e-5;
     const double lInf = (target == DNN_TARGET_OPENCL_FP16 || target == DNN_TARGET_MYRIAD) ? 2.87 : 5e-4;
     testONNXModels("mobilenetv2", pb, l1, lInf);
 }
@@ -335,7 +356,17 @@ TEST_P(Test_ONNX_nets, LResNet100E_IR)
 
 TEST_P(Test_ONNX_nets, Emotion_ferplus)
 {
-    testONNXModels("emotion_ferplus", pb);
+    double l1 = default_l1;
+    double lInf = default_lInf;
+    // Output values are in range [-2.01109, 2.11111]
+    if (backend == DNN_BACKEND_OPENCV && target == DNN_TARGET_OPENCL_FP16)
+        l1 = 0.007;
+    else if (backend == DNN_BACKEND_INFERENCE_ENGINE && target == DNN_TARGET_OPENCL_FP16)
+    {
+        l1 = 0.021;
+        lInf = 0.034;
+    }
+    testONNXModels("emotion_ferplus", pb, l1, lInf);
 }
 
 TEST_P(Test_ONNX_nets, Inception_v2)
@@ -356,6 +387,10 @@ TEST_P(Test_ONNX_nets, DenseNet121)
 
 TEST_P(Test_ONNX_nets, Inception_v1)
 {
+#if defined(INF_ENGINE_RELEASE) && INF_ENGINE_RELEASE == 2018050000
+    if (backend == DNN_BACKEND_INFERENCE_ENGINE && target == DNN_TARGET_MYRIAD)
+        throw SkipTestException("");
+#endif
     testONNXModels("inception_v1", pb);
 }
 

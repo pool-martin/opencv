@@ -3241,7 +3241,7 @@ public:
             ::ipp::IwiTile tile = ::ipp::IwiRoi(0, range.start, m_dst.m_size.width, range.end - range.start);
             CV_INSTRUMENT_FUN_IPP(iwiResize, m_src, m_dst, ippBorderRepl, tile);
         }
-        catch(::ipp::IwException)
+        catch(const ::ipp::IwException &)
         {
             m_ok = false;
             return;
@@ -3291,7 +3291,7 @@ public:
             ::ipp::IwiTile tile = ::ipp::IwiRoi(0, range.start, m_dst.m_size.width, range.end - range.start);
             CV_INSTRUMENT_FUN_IPP(iwiWarpAffine, m_src, m_dst, tile);
         }
-        catch(::ipp::IwException)
+        catch(const ::ipp::IwException &)
         {
             m_ok = false;
             return;
@@ -3321,7 +3321,7 @@ static bool ipp_resize(const uchar * src_data, size_t src_step, int src_width, i
         return false;
 
     // Resize which doesn't match OpenCV exactly
-    if (!cv::ipp::useIPP_NE())
+    if (!cv::ipp::useIPP_NotExact())
     {
         if (ippInter == ippNearest || ippInter == ippSuper || (ippDataType == ipp8u && ippInter == ippLinear))
             return false;
@@ -3387,7 +3387,7 @@ static bool ipp_resize(const uchar * src_data, size_t src_step, int src_width, i
         if(!ok)
             return false;
     }
-    catch(::ipp::IwException)
+    catch(const ::ipp::IwException &)
     {
         return false;
     }
@@ -3782,9 +3782,9 @@ void cv::resize( InputArray _src, OutputArray _dst, Size dsize,
     Size ssize = _src.size();
 
     CV_Assert( !ssize.empty() );
-    CV_Assert( !dsize.empty() || (inv_scale_x > 0 && inv_scale_y > 0) );
     if( dsize.empty() )
     {
+        CV_Assert(inv_scale_x > 0); CV_Assert(inv_scale_y > 0);
         dsize = Size(saturate_cast<int>(ssize.width*inv_scale_x),
                      saturate_cast<int>(ssize.height*inv_scale_y));
         CV_Assert( !dsize.empty() );
@@ -3793,6 +3793,7 @@ void cv::resize( InputArray _src, OutputArray _dst, Size dsize,
     {
         inv_scale_x = (double)dsize.width/ssize.width;
         inv_scale_y = (double)dsize.height/ssize.height;
+        CV_Assert(inv_scale_x > 0); CV_Assert(inv_scale_y > 0);
     }
 
     if (interpolation == INTER_LINEAR_EXACT && (_src.depth() == CV_32F || _src.depth() == CV_64F))
